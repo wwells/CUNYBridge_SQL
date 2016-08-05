@@ -4,8 +4,12 @@
 CREATE DATABASE IF NOT EXISTS BuildingEnergy;
 
 /* 2) Create & populate initial tables */ 
+SET foreign_key_checks = 0;
 DROP TABLE IF EXISTS BuildingEnergy.EnergyCategories;
 DROP TABLE IF EXISTS BuildingEnergy.EnergyTypes;
+DROP TABLE IF EXISTS BuildingEnergy.Buildings;
+DROP TABLE IF EXISTS BuildingEnergy.BuildingEType;
+SET foreign_key_checks = 1;
 
 CREATE TABLE BuildingEnergy.EnergyCategories
 (
@@ -17,7 +21,9 @@ CREATE TABLE BuildingEnergy.EnergyTypes
 (
   type_id int PRIMARY KEY,
   type_name varchar(200) NOT NULL UNIQUE,
-  cat_id int NULL REFERENCES EnergyCategories
+  cat_id int NULL, 
+	FOREIGN KEY (cat_id) REFERENCES BuildingEnergy.EnergyCategories(cat_id)
+    ON DELETE SET NULL
 );
 
 INSERT INTO BuildingEnergy.EnergyCategories (cat_id, cat_name) 
@@ -50,9 +56,6 @@ SELECT c.cat_name, t.type_name FROM BuildingEnergy.EnergyCategories c
 SELECT * FROM BuildingEnergy.energyjoin;
     
 /* 4)  Add Building table and Building/Energy link table */
-DROP TABLE IF EXISTS BuildingEnergy.Buildings;
-DROP TABLE IF EXISTS BuildingEnergy.BuildingEType;
-
 CREATE TABLE BuildingEnergy.Buildings
 (
   build_id int PRIMARY KEY,
@@ -61,8 +64,10 @@ CREATE TABLE BuildingEnergy.Buildings
 
 CREATE TABLE BuildingEnergy.BuildingEType
 (
-  build_id int NOT NULL REFERENCES BuildingEnergy.Buildings(build_id),
-  type_id int NOT NULL REFERENCES BuildingEnergy.EnergyTypes(type_id),
+  build_id int NOT NULL, 
+	FOREIGN KEY (build_id) REFERENCES BuildingEnergy.Buildings(build_id),
+  type_id int NOT NULL,
+    FOREIGN KEY (type_id) REFERENCES BuildingEnergy.EnergyTypes(type_id),
   CONSTRAINT pk_BuildingEType PRIMARY KEY(build_id, type_id)
  );
  
@@ -123,3 +128,23 @@ INSERT INTO BuildingEnergy.BuildingEType (build_id, type_id)
 SELECT * FROM BuildingEnergy.buildEjoin;
 
 /* 7) Create a query that shows only buildings that use renewable energy */
+DROP VIEW IF EXISTS BuildingEnergy.joinall; 
+
+CREATE VIEW BuildingEnergy.joinall AS
+SELECT b.build_name, e.type_name, r.cat_name FROM BuildingEnergy.Buildings b
+	LEFT JOIN BuildingEnergy.BuildingEType be
+		ON b.build_id = be.build_id
+	LEFT JOIN BuildingEnergy.EnergyTypes e
+		ON be.type_id = e.type_id
+	LEFT JOIN BuildingEnergy.EnergyCategories r
+		ON e.cat_id = r.cat_id;
+
+SELECT * FROM BuildingEnergy.joinall 
+    WHERE cat_name = 'Renewable';
+    
+/* 8) Create a query that shows the frequency of energy use types */
+SELECT type_name, COUNT(type_name) FROM BuildingEnergy.joinall
+	GROUP BY type_name ORDER BY COUNT(type_name) DESC;
+    
+/* 9) a - Foreign Key Restraints created in initial tables
+	  b - Entity relationship chart created using workbench reverse engineer EER*/
